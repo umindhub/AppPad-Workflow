@@ -44,4 +44,5 @@ validates, builds, signs and uploads `dist/` with wrangler (`.github/workflows/d
 Contributors can only change files inside `workflows/`. Never merge a contributor's change to
 `.github/`, `scripts/` or anything else outside `workflows/`.
 
-Local commands: `npm run check` (validate), `npm run preview` (unsigned build into `dist/`).
+The scripts use Node built-ins only (no `npm install`). Local commands: `npm run check`
+(validate), `npm run preview` (unsigned build into `dist/`), `npm run keygen` (signing keys).

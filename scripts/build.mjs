@@ -1,4 +1,4 @@
-// Builds the static market into dist/ (deployed to Cloudflare Pages):
+// Builds the static market into dist/ (uploaded to Cloudflare Pages):
 //
 //   dist/v1/index.json                    every workflow + sha256 of its published file
 //   dist/v1/index.json.sig                Ed25519 signature of index.json (base64)
@@ -9,7 +9,7 @@
 //   node scripts/build.mjs --unsigned      (local preview only; AppPad rejects it)
 
 import { execFileSync } from "node:child_process"
-import { sign as edSign, createPrivateKey } from "node:crypto"
+import { createPrivateKey, sign as edSign } from "node:crypto"
 import { mkdirSync, rmSync, writeFileSync } from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
@@ -28,19 +28,25 @@ if (!/^https:\/\/[^/]+$/.test(baseURL) && !unsigned) {
 
 function lastChange(id) {
     try {
-        const out = execFileSync("git", ["log", "-1", "--format=%cI", "--", `workflows/${id}`], { cwd: ROOT, stdio: ["ignore", "pipe", "ignore"] }).toString().trim()
+        const out = execFileSync("git", ["log", "-1", "--format=%cI", "--", `workflows/${id}`], {
+            cwd: ROOT,
+            stdio: ["ignore", "pipe", "ignore"],
+        }).toString().trim()
         return out || null
     } catch {
         return null
     }
 }
 
-// Display fields only (the app reads the full file).
+// Display and search fields only (the app reads the full file).
 function localizedText(table) {
     const out = {}
     for (const [lang, entry] of Object.entries(table ?? {})) {
         const picked = {}
-        for (const key of ["name", "description", "argumentHint"]) if (entry[key]) picked[key] = entry[key]
+        if (entry.name) picked.name = entry.name
+        if (entry.description) picked.description = entry.description
+        if (entry.argumentHint) picked.argumentHint = entry.argumentHint
+        if (entry.keywords?.length) picked.keywords = entry.keywords
         if (Object.keys(picked).length) out[lang] = picked
     }
     return out
@@ -54,14 +60,16 @@ const entries = []
 
 for (const id of listWorkflowDirs(ROOT)) {
     const folder = loadFolder(ROOT, id)
-    if (folder.errors.length) {
+    const w = folder.workflow
+    const m = folder.market
+    if (folder.errors.length || !w || !m) {
         failures.push(...folder.errors.map((e) => `${id}: ${e}`))
         continue
     }
     const outDir = path.join(DIST, "v1", "workflows", id)
     mkdirSync(outDir, { recursive: true })
 
-    const published = { ...folder.workflow }
+    const published = { ...w }
     let iconPath = null
     if (folder.icon) {
         iconPath = `workflows/${id}/${ICON_FILE}`
@@ -71,8 +79,6 @@ for (const id of listWorkflowDirs(ROOT)) {
     const bytes = Buffer.from(JSON.stringify(published, null, 2) + "\n", "utf8")
     writeFileSync(path.join(outDir, WORKFLOW_FILE), bytes)
 
-    const w = folder.workflow
-    const m = folder.market
     entries.push({
         id,
         version: w.version,
@@ -84,7 +90,9 @@ for (const id of listWorkflowDirs(ROOT)) {
         argument: w.argument ?? "none",
         argumentHint: w.argumentHint ?? "",
         example: m.example ?? "",
-        category: m.category ?? "other",
+        categories: m.categories,
+        apps: m.apps ?? [],
+        tags: m.tags ?? [],
         author: { name: m.author.name, ...(m.author.url ? { url: m.author.url } : {}) },
         maintainers: m.maintainers,
         stepKinds: stepKinds(w),

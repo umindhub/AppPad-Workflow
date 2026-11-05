@@ -1,9 +1,46 @@
-// Shared rules for check.mjs (PRs) and build.mjs (deploy).
+// Shared rules for check.mjs (PRs) and build.mjs (deploy). Node built-ins only, no dependencies.
 // Mirrors AppPad/Workflow/WorkflowModel.swift — keep both in sync when the format changes.
 
 import { createHash } from "node:crypto"
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
 import path from "node:path"
+
+// ── Workflow file (format 1.0) ───────────────────────────────────────────────
+
+export const STEP_KINDS = ["shell", "appleScript", "shortcut", "http", "builtin"]
+
+const SCRIPT_LANGUAGES = ["appleScript", "javaScript"]
+const BUILTIN_ACTIONS = [
+    "emptyTrash", "sleepDisplays", "sleepMac", "keepAwake", "toggleDarkMode", "setVolume", "toggleMute",
+    "ejectDisks", "toggleHiddenFiles", "quitApp", "quitAllApps", "openURL", "copyIPAddress", "generateUUID",
+    "shutDown", "restart", "createReminder",
+    "addToClaudeDesktop", "removeFromClaudeDesktop",
+    "addYouMindHubToClaudeDesktop", "removeYouMindHubFromClaudeDesktop",
+    "installHomebrew", "prefillTerminal", "openSystemSettings", "checkWorkflowUpdates",
+]
+const ARGUMENT_MODES = ["none", "optional", "required"]
+const ARGUMENT_TYPES = ["text", "duration", "time", "number", "percent", "reminder"]
+const HTTP_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"]
+const SUCCESS_NOTICES = ["output", "custom", "none"]
+const FAILURE_NOTICES = ["error", "custom"]
+
+// ── Listing (market.json) ────────────────────────────────────────────────────
+//
+//   maintainers  GitHub logins allowed to update / remove the workflow (required)
+//   author       { name, url? } shown in the market and in AppPad (required)
+//   categories   1–3 of CATEGORIES, main one first (required)
+//   apps         [{ bundleId, name }] apps it works with; must cover permissions.appleEvents
+//   tags         lowercase search words, e.g. "git", "screenshot"
+//   example      what to type in the Workflow panel
+
+export const CATEGORIES = [
+    "productivity", "system", "developer", "files", "text", "web",
+    "network", "media", "communication", "design", "ai", "other",
+]
+
+export const LIMITS = { categories: 3, apps: 10, tags: 8, tagLength: 24, appName: 40, example: 80 }
+
+// ── Repository rules ─────────────────────────────────────────────────────────
 
 export const ADMINS = ["umindhub"]
 export const RESERVED_PREFIXES = ["com.youmindhub."]
@@ -23,23 +60,13 @@ export const BUILTIN_IDS = new Set([
 
 export const FORMAT_VERSIONS = new Set(["1.0"])
 export const LANGUAGES = new Set(["de", "es", "fr", "it", "ja", "ko", "nl", "zh-Hans", "zh-Hant"])
-export const CATEGORIES = new Set(["productivity", "system", "developer", "web", "media", "files", "ai", "other"])
 
-const STEP_KINDS = new Set(["shell", "appleScript", "shortcut", "http", "builtin"])
-const SCRIPT_LANGUAGES = new Set(["appleScript", "javaScript"])
-const BUILTIN_ACTIONS = new Set([
-    "emptyTrash", "sleepDisplays", "sleepMac", "keepAwake", "toggleDarkMode", "setVolume", "toggleMute",
-    "ejectDisks", "toggleHiddenFiles", "quitApp", "quitAllApps", "openURL", "copyIPAddress", "generateUUID",
-    "shutDown", "restart", "createReminder",
-    "addToClaudeDesktop", "removeFromClaudeDesktop",
-    "addYouMindHubToClaudeDesktop", "removeYouMindHubFromClaudeDesktop",
-    "installHomebrew", "prefillTerminal", "openSystemSettings", "checkWorkflowUpdates",
-])
-const ARGUMENT_MODES = new Set(["none", "optional", "required"])
-const ARGUMENT_TYPES = new Set(["text", "duration", "time", "number", "percent", "reminder"])
-const HTTP_METHODS = new Set(["GET", "POST", "PUT", "PATCH", "DELETE"])
-const SUCCESS_NOTICES = new Set(["output", "custom", "none"])
-const FAILURE_NOTICES = new Set(["error", "custom"])
+export const WORKFLOW_FILE = "workflow.json"
+export const MARKET_FILE = "market.json"
+export const ICON_FILE = "icon.png"
+export const MAX_WORKFLOW_BYTES = 1_000_000   // AppPad's download limit
+export const MAX_ICON_BYTES = 512 * 1024
+const ALLOWED_FILES = new Set([WORKFLOW_FILE, MARKET_FILE, ICON_FILE])
 
 // Export keys only; local-store keys (uid, enabled, panelKey, source) and icons are rejected.
 const WORKFLOW_KEYS = new Set([
@@ -55,18 +82,13 @@ const HTTP_KEYS = new Set(["method", "url", "headers", "body"])
 const LOCALIZATION_KEYS = new Set(["name", "description", "argumentHint", "keywords"])
 const PERMISSION_ARRAYS = ["fileRead", "fileWrite", "appleEvents", "httpHosts", "secrets"]
 const PERMISSION_FLAGS = ["network", "systemServices"]
-const MARKET_KEYS = new Set(["maintainers", "author", "category", "example"])
-
-export const WORKFLOW_FILE = "workflow.json"
-export const MARKET_FILE = "market.json"
-export const ICON_FILE = "icon.png"
-export const MAX_WORKFLOW_BYTES = 1_000_000   // AppPad's download limit
-export const MAX_ICON_BYTES = 512 * 1024
-const ALLOWED_FILES = new Set([WORKFLOW_FILE, MARKET_FILE, ICON_FILE])
+const MARKET_KEYS = new Set(["maintainers", "author", "categories", "apps", "tags", "example"])
 
 const ID_RE = /^[a-z0-9][a-z0-9-]*(\.[a-z0-9][a-z0-9-]*)+$/
 const VERSION_RE = /^[0-9]+(\.[0-9]+){0,3}$/
 const GITHUB_RE = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/
+const BUNDLE_ID_RE = /^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/
+const TAG_RE = new RegExp(`^[a-z0-9][a-z0-9-]{0,${LIMITS.tagLength - 1}}$`)
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -75,6 +97,10 @@ export const sha256 = (buf) => createHash("sha256").update(buf).digest("hex")
 export const isObject = (v) => v !== null && typeof v === "object" && !Array.isArray(v)
 
 const isStringArray = (v) => Array.isArray(v) && v.every((x) => typeof x === "string")
+
+const oneOf = (list, v) => typeof v === "string" && list.includes(v)
+
+const duplicates = (list) => list.filter((v, i) => list.indexOf(v) !== i)
 
 // Numeric per component: 1.10 > 1.9, 1.0 == 1 (WorkflowIdentity.compareVersions).
 export function compareVersions(a, b) {
@@ -88,11 +114,12 @@ export function compareVersions(a, b) {
     return 0
 }
 
-export const isAdmin = (login) => ADMINS.some((a) => a.toLowerCase() === String(login).toLowerCase())
+const sameLogin = (a, b) => a.toLowerCase() === b.toLowerCase()
+
+export const isAdmin = (login) => ADMINS.some((a) => sameLogin(a, login))
 
 export const isMaintainer = (market, login) =>
-    isAdmin(login) ||
-    (market?.maintainers ?? []).some((m) => m.toLowerCase() === String(login).toLowerCase())
+    isAdmin(login) || (market?.maintainers ?? []).some((m) => sameLogin(m, login))
 
 // Workflow folders under <root>/workflows (folder name = id).
 export function listWorkflowDirs(root) {
@@ -111,7 +138,7 @@ function pngSize(buf) {
     return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) }
 }
 
-// ── Validation ───────────────────────────────────────────────────────────────
+// ── Workflow validation ──────────────────────────────────────────────────────
 
 function checkKeys(obj, allowed, where, errors) {
     for (const key of Object.keys(obj)) {
@@ -121,44 +148,53 @@ function checkKeys(obj, allowed, where, errors) {
 
 function validateStep(step, i, errors) {
     const where = `steps[${i}]`
-    if (!isObject(step)) return errors.push(`${where}: must be an object`)
+    if (!isObject(step)) {
+        errors.push(`${where}: must be an object`)
+        return
+    }
     checkKeys(step, STEP_KEYS, where, errors)
-    if (!STEP_KINDS.has(step.kind)) errors.push(`${where}.kind: must be one of ${[...STEP_KINDS].join(", ")}`)
+    if (!oneOf(STEP_KINDS, step.kind)) errors.push(`${where}.kind: must be one of ${STEP_KINDS.join(", ")}`)
     for (const key of ["script", "shortcutName", "shortcutInput", "url", "command", "directory"]) {
         if (key in step && typeof step[key] !== "string") errors.push(`${where}.${key}: must be a string`)
     }
-    if ("language" in step && !SCRIPT_LANGUAGES.has(step.language)) errors.push(`${where}.language: invalid`)
+    if ("language" in step && !oneOf(SCRIPT_LANGUAGES, step.language)) errors.push(`${where}.language: invalid`)
     if ("timeout" in step && !(typeof step.timeout === "number" && step.timeout > 0 && step.timeout <= 3600)) {
         errors.push(`${where}.timeout: must be a number of seconds (0–3600]`)
     }
-    if (step.kind === "builtin" && !BUILTIN_ACTIONS.has(step.builtin)) {
-        errors.push(`${where}.builtin: unknown action "${step.builtin}"`)
+    if (step.kind === "builtin" && !oneOf(BUILTIN_ACTIONS, step.builtin)) {
+        errors.push(`${where}.builtin: unknown action "${String(step.builtin)}"`)
     } else if ("builtin" in step && typeof step.builtin !== "string") {
         errors.push(`${where}.builtin: must be a string`)
     }
-    if (step.kind === "shell" || step.kind === "appleScript") {
-        if (!step.script?.trim()) errors.push(`${where}.script: empty`)
+    if ((step.kind === "shell" || step.kind === "appleScript") && !(typeof step.script === "string" && step.script.trim())) {
+        errors.push(`${where}.script: empty`)
     }
-    if (step.kind === "shortcut" && !step.shortcutName?.trim()) errors.push(`${where}.shortcutName: empty`)
+    if (step.kind === "shortcut" && !(typeof step.shortcutName === "string" && step.shortcutName.trim())) {
+        errors.push(`${where}.shortcutName: empty`)
+    }
     if ("http" in step) {
-        if (!isObject(step.http)) {
+        const http = step.http
+        if (!isObject(http)) {
             errors.push(`${where}.http: must be an object`)
-        } else {
-            checkKeys(step.http, HTTP_KEYS, `${where}.http`, errors)
-            if ("method" in step.http && !HTTP_METHODS.has(step.http.method)) errors.push(`${where}.http.method: invalid`)
-            for (const key of ["url", "headers", "body"]) {
-                if (key in step.http && typeof step.http[key] !== "string") errors.push(`${where}.http.${key}: must be a string`)
-            }
-            if (step.kind === "http" && !/^https:\/\//i.test(step.http.url ?? "")) {
-                errors.push(`${where}.http.url: must be an https URL`)
-            }
+            return
+        }
+        checkKeys(http, HTTP_KEYS, `${where}.http`, errors)
+        if ("method" in http && !oneOf(HTTP_METHODS, http.method)) errors.push(`${where}.http.method: invalid`)
+        for (const key of ["url", "headers", "body"]) {
+            if (key in http && typeof http[key] !== "string") errors.push(`${where}.http.${key}: must be a string`)
+        }
+        if (step.kind === "http" && !/^https:\/\//i.test(String(http.url ?? ""))) {
+            errors.push(`${where}.http.url: must be an https URL`)
         }
     }
 }
 
 function validatePermissions(p, errors) {
-    if (!isObject(p)) return errors.push("permissions: must be an object")
-    checkKeys(p, new Set([...PERMISSION_ARRAYS, ...PERMISSION_FLAGS]), "permissions", errors)
+    if (!isObject(p)) {
+        errors.push("permissions: must be an object")
+        return
+    }
+    checkKeys(p, new Set ([...PERMISSION_ARRAYS, ...PERMISSION_FLAGS]), "permissions", errors)
     for (const key of PERMISSION_ARRAYS) {
         if (key in p && !isStringArray(p[key])) errors.push(`permissions.${key}: must be an array of strings`)
     }
@@ -168,7 +204,10 @@ function validatePermissions(p, errors) {
 }
 
 function validateLocalizations(table, errors) {
-    if (!isObject(table)) return errors.push("localizations: must be an object")
+    if (!isObject(table)) {
+        errors.push("localizations: must be an object")
+        return
+    }
     for (const [lang, entry] of Object.entries(table)) {
         if (!LANGUAGES.has(lang)) errors.push(`localizations.${lang}: unsupported language (use ${[...LANGUAGES].join(", ")})`)
         if (!isObject(entry)) {
@@ -181,6 +220,27 @@ function validateLocalizations(table, errors) {
         }
         if ("keywords" in entry && !isStringArray(entry.keywords)) errors.push(`localizations.${lang}.keywords: must be an array of strings`)
     }
+}
+
+// HTTP hosts and {{secret:NAME}} must be declared, the same rule AppPad applies on save.
+function checkDeclared(w, steps, errors) {
+    const p = isObject(w.permissions) ? w.permissions : {}
+    const hosts = new Set((isStringArray(p.httpHosts) ? p.httpHosts : []).map((h) => h.toLowerCase()))
+    const secrets = new Set(isStringArray(p.secrets) ? p.secrets : [])
+    steps.forEach((step, i) => {
+        if (!isObject(step) || step.kind !== "http" || !isObject(step.http)) return
+        const http = step.http
+        try {
+            const host = new URL(String(http.url).replaceAll("{{input}}", "x")).hostname.toLowerCase()
+            if (!hosts.has(host)) errors.push(`steps[${i}]: host "${host}" must be listed in permissions.httpHosts`)
+        } catch {
+            errors.push(`steps[${i}].http.url: not a valid URL`)
+        }
+        const text = [http.url, http.headers, http.body].join("\n")
+        for (const [, name] of text.matchAll(/\{\{secret:([A-Za-z0-9_.-]+)\}\}/g)) {
+            if (!secrets.has(name)) errors.push(`steps[${i}]: secret "${name}" must be listed in permissions.secrets`)
+        }
+    })
 }
 
 export function validateWorkflow(w, folderName) {
@@ -202,62 +262,104 @@ export function validateWorkflow(w, folderName) {
         else if (w.group.toLowerCase() === "system") errors.push(`group: "system" is reserved for AppPad's built-in workflows`)
     }
     if ("keywords" in w && !isStringArray(w.keywords)) errors.push("keywords: must be an array of strings")
-    if ("argument" in w && !ARGUMENT_MODES.has(w.argument)) errors.push("argument: must be none, optional or required")
-    if ("argumentType" in w && !ARGUMENT_TYPES.has(w.argumentType)) errors.push("argumentType: invalid")
+    if ("argument" in w && !oneOf(ARGUMENT_MODES, w.argument)) errors.push("argument: must be none, optional or required")
+    if ("argumentType" in w && !oneOf(ARGUMENT_TYPES, w.argumentType)) errors.push("argumentType: invalid")
     for (const key of ["argumentHint", "symbol", "successMessage", "failureMessage"]) {
         if (key in w && typeof w[key] !== "string") errors.push(`${key}: must be a string`)
     }
-    if ("successNotice" in w && !SUCCESS_NOTICES.has(w.successNotice)) errors.push("successNotice: must be output, custom or none")
-    if ("failureNotice" in w && !FAILURE_NOTICES.has(w.failureNotice)) errors.push("failureNotice: must be error or custom")
+    if ("successNotice" in w && !oneOf(SUCCESS_NOTICES, w.successNotice)) errors.push("successNotice: must be output, custom or none")
+    if ("failureNotice" in w && !oneOf(FAILURE_NOTICES, w.failureNotice)) errors.push("failureNotice: must be error or custom")
     for (const key of ["copyOutput", "confirm"]) {
         if (key in w && typeof w[key] !== "boolean") errors.push(`${key}: must be true or false`)
     }
-    if (!Array.isArray(w.steps) || w.steps.length === 0) errors.push("steps: at least one step is required")
-    else w.steps.forEach((s, i) => validateStep(s, i, errors))
+    if (!Array.isArray(w.steps) || w.steps.length === 0) {
+        errors.push("steps: at least one step is required")
+    } else {
+        w.steps.forEach((s, i) => validateStep(s, i, errors))
+        checkDeclared(w, w.steps, errors)
+    }
     if ("permissions" in w) validatePermissions(w.permissions, errors)
-    if (Array.isArray(w.steps)) checkDeclared(w, errors)
     return errors
 }
 
-// HTTP hosts and {{secret:NAME}} must be declared, the same rule AppPad applies on save.
-function checkDeclared(w, errors) {
-    const p = isObject(w.permissions) ? w.permissions : {}
-    const hosts = new Set((p.httpHosts ?? []).map((h) => String(h).toLowerCase()))
-    const secrets = new Set(p.secrets ?? [])
-    w.steps.forEach((step, i) => {
-        if (!isObject(step) || step.kind !== "http" || !isObject(step.http)) return
-        try {
-            const host = new URL(String(step.http.url).replaceAll("{{input}}", "x")).hostname.toLowerCase()
-            if (!hosts.has(host)) errors.push(`steps[${i}]: host "${host}" must be listed in permissions.httpHosts`)
-        } catch {
-            errors.push(`steps[${i}].http.url: not a valid URL`)
-        }
-        const text = [step.http.url, step.http.headers, step.http.body].join("\n")
-        for (const [, name] of text.matchAll(/\{\{secret:([A-Za-z0-9_.-]+)\}\}/g)) {
-            if (!secrets.has(name)) errors.push(`steps[${i}]: secret "${name}" must be listed in permissions.secrets`)
-        }
-    })
-}
+// ── Listing validation ───────────────────────────────────────────────────────
 
 export function validateMarket(m) {
     const errors = []
     if (!isObject(m)) return ["market.json: must be an object"]
     checkKeys(m, MARKET_KEYS, "market.json", errors)
-    if (!Array.isArray(m.maintainers) || m.maintainers.length === 0 || !m.maintainers.every((x) => typeof x === "string" && GITHUB_RE.test(x))) {
+
+    if (!isStringArray(m.maintainers) || m.maintainers.length === 0 || !m.maintainers.every((x) => GITHUB_RE.test(x))) {
         errors.push("market.json maintainers: list the GitHub usernames allowed to update this workflow")
     }
-    if (!isObject(m.author) || typeof m.author.name !== "string" || !m.author.name.trim()) {
+
+    const author = m.author
+    if (!isObject(author) || typeof author.name !== "string" || !author.name.trim()) {
         errors.push('market.json author.name: required, e.g. { "name": "Jane Doe" }')
     } else {
-        checkKeys(m.author, new Set(["name", "url"]), "market.json author", errors)
-        if ("url" in m.author && !/^https:\/\/[^\s]+$/i.test(m.author.url)) errors.push("market.json author.url: must be an https URL")
+        checkKeys(author, new Set(["name", "url"]), "market.json author", errors)
+        if ("url" in author && !(typeof author.url === "string" && /^https:\/\/\S+$/i.test(author.url))) {
+            errors.push("market.json author.url: must be an https URL")
+        }
     }
-    if ("category" in m && !CATEGORIES.has(m.category)) errors.push(`market.json category: one of ${[...CATEGORIES].join(", ")}`)
-    if ("example" in m && (typeof m.example !== "string" || m.example.length > 80)) errors.push("market.json example: a short string (≤ 80 characters)")
+
+    if (!Array.isArray(m.categories) || m.categories.length < 1 || m.categories.length > LIMITS.categories) {
+        errors.push(`market.json categories: 1–${LIMITS.categories} of ${CATEGORIES.join(", ")} (main category first)`)
+    } else {
+        for (const c of m.categories) if (!oneOf(CATEGORIES, c)) errors.push(`market.json categories: unknown "${String(c)}"`)
+        for (const d of duplicates(m.categories.map(String))) errors.push(`market.json categories: "${d}" listed twice`)
+    }
+
+    if ("apps" in m) {
+        if (!Array.isArray(m.apps) || m.apps.length > LIMITS.apps) {
+            errors.push(`market.json apps: an array of at most ${LIMITS.apps} apps`)
+        } else {
+            m.apps.forEach((app, i) => {
+                const where = `market.json apps[${i}]`
+                if (!isObject(app)) {
+                    errors.push(`${where}: must be { "bundleId": "…", "name": "…" }`)
+                    return
+                }
+                checkKeys(app, new Set(["bundleId", "name"]), where, errors)
+                if (typeof app.bundleId !== "string" || !BUNDLE_ID_RE.test(app.bundleId)) errors.push(`${where}.bundleId: e.g. com.apple.finder`)
+                if (typeof app.name !== "string" || !app.name.trim() || app.name.length > LIMITS.appName) {
+                    errors.push(`${where}.name: the app's name, at most ${LIMITS.appName} characters`)
+                }
+            })
+            const ids = m.apps.filter(isObject).map((a) => String(a.bundleId).toLowerCase())
+            for (const d of duplicates(ids)) errors.push(`market.json apps: "${d}" listed twice`)
+        }
+    }
+
+    if ("tags" in m) {
+        if (!isStringArray(m.tags) || m.tags.length > LIMITS.tags) {
+            errors.push(`market.json tags: an array of at most ${LIMITS.tags} strings`)
+        } else {
+            for (const tag of m.tags) {
+                if (!TAG_RE.test(tag)) errors.push(`market.json tags: "${tag}" must be lowercase a–z, 0–9 and "-", at most ${LIMITS.tagLength} characters`)
+            }
+            for (const d of duplicates(m.tags)) errors.push(`market.json tags: "${d}" listed twice`)
+        }
+    }
+
+    if ("example" in m && (typeof m.example !== "string" || m.example.length > LIMITS.example)) {
+        errors.push(`market.json example: a short string (≤ ${LIMITS.example} characters)`)
+    }
     return errors
 }
 
-// Reads and validates one folder; { id, workflow, market, raw, icon, errors }.
+// Apps a script controls must be listed, so "works with" never hides what it touches.
+function checkAppsCoverEvents(w, m, errors) {
+    const listed = new Set((m.apps ?? []).map((a) => a.bundleId.toLowerCase()))
+    for (const bundleId of w.permissions?.appleEvents ?? []) {
+        if (!listed.has(bundleId.toLowerCase())) {
+            errors.push(`market.json apps: add { "bundleId": "${bundleId}", "name": "…" } — the workflow controls it (permissions.appleEvents)`)
+        }
+    }
+}
+
+// ── Folder ───────────────────────────────────────────────────────────────────
+
 export function loadFolder(root, id) {
     const dir = path.join(root, "workflows", id)
     const errors = []
@@ -269,29 +371,41 @@ export function loadFolder(root, id) {
     if (BUILTIN_IDS.has(id)) errors.push(`${id}: reserved for an AppPad built-in workflow`)
 
     const workflowPath = path.join(dir, WORKFLOW_FILE)
+    let workflowValid = false
     if (!existsSync(workflowPath)) {
         errors.push("workflow.json: missing")
     } else {
         result.raw = readFileSync(workflowPath)
         if (result.raw.length > MAX_WORKFLOW_BYTES) errors.push("workflow.json: larger than 1 MB")
         try {
-            result.workflow = JSON.parse(result.raw.toString("utf8"))
-            errors.push(...validateWorkflow(result.workflow, id))
+            const parsed = JSON.parse(result.raw.toString("utf8"))
+            const found = validateWorkflow(parsed, id)
+            errors.push(...found)
+            result.workflow = parsed
+            workflowValid = found.length === 0
         } catch (e) {
             errors.push(`workflow.json: invalid JSON (${e.message})`)
         }
     }
 
     const marketPath = path.join(dir, MARKET_FILE)
+    let marketValid = false
     if (!existsSync(marketPath)) {
         errors.push("market.json: missing")
     } else {
         try {
-            result.market = JSON.parse(readFileSync(marketPath, "utf8"))
-            errors.push(...validateMarket(result.market))
+            const parsed = JSON.parse(readFileSync(marketPath, "utf8"))
+            const found = validateMarket(parsed)
+            errors.push(...found)
+            result.market = parsed
+            marketValid = found.length === 0
         } catch (e) {
             errors.push(`market.json: invalid JSON (${e.message})`)
         }
+    }
+
+    if (workflowValid && marketValid && result.workflow && result.market) {
+        checkAppsCoverEvents(result.workflow, result.market, errors)
     }
 
     const iconPath = path.join(dir, ICON_FILE)
@@ -307,11 +421,11 @@ export function loadFolder(root, id) {
     return result
 }
 
-// ── Permission summary (PR review) ───────────────────────────────────────────
+// ── Review helpers ───────────────────────────────────────────────────────────
 
 // Flat, comparable list: "network", "fileRead:~/Desktop", "appleEvents:com.apple.finder" …
 export function permissionList(w) {
-    const p = isObject(w?.permissions) ? w.permissions : {}
+    const p = w?.permissions ?? {}
     const items = []
     for (const key of PERMISSION_FLAGS) if (p[key] === true) items.push(key)
     for (const key of PERMISSION_ARRAYS) for (const v of p[key] ?? []) items.push(`${key}:${v}`)

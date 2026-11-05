@@ -8,17 +8,15 @@
 
 import { appendFileSync, existsSync, readFileSync, readdirSync, statSync } from "node:fs"
 import path from "node:path"
+import { parseArgs } from "node:util"
 import {
     RESERVED_PREFIXES, compareVersions, isAdmin, isMaintainer, listWorkflowDirs, loadFolder,
     permissionList, sha256, stepKinds,
 } from "./lib.mjs"
 
-const args = Object.fromEntries(
-    process.argv.slice(2).reduce((pairs, arg, i, all) => {
-        if (arg.startsWith("--")) pairs.push([arg.slice(2), all[i + 1]])
-        return pairs
-    }, []),
-)
+const { values: args } = parseArgs({
+    options: { base: { type: "string" }, head: { type: "string" }, author: { type: "string" } },
+})
 const head = path.resolve(args.head ?? ".")
 const base = args.base ? path.resolve(args.base) : null
 const author = args.author ?? ""
@@ -31,7 +29,7 @@ const summary = []
 const SKIP_DIRS = new Set([".git", "node_modules", "dist", "workflows"])
 
 function treeHashes(root, rel = "") {
-    const out = new Map()
+    const out = new Map ()
     for (const name of readdirSync(path.join(root, rel))) {
         const relPath = path.join(rel, name)
         const full = path.join(root, relPath)
@@ -57,24 +55,36 @@ if (base && !isAdmin(author)) {
 // ── Workflow folders ─────────────────────────────────────────────────────────
 
 const folderHash = (dir) =>
-    existsSync(dir)
+    dir && existsSync(dir)
         ? readdirSync(dir).sort().map((n) => `${n}:${sha256(readFileSync(path.join(dir, n)))}`).join("|")
         : ""
 
-const fileHash = (dir, name) => (existsSync(path.join(dir, name)) ? sha256(readFileSync(path.join(dir, name))) : "")
+const fileHash = (dir, name) =>
+    dir && existsSync(path.join(dir, name)) ? sha256(readFileSync(path.join(dir, name))) : ""
+
+const code = (items) => (items.length ? items.map((p) => `\`${p}\``).join(", ") : "none")
+
+function listingNotes(before, now) {
+    const lines = []
+    const m = now.market
+    const apps = (m?.apps ?? []).map((a) => `${a.name} (${a.bundleId})`)
+    lines.push(`Listing: categories ${code(m?.categories ?? [])}; apps ${code(apps)}; tags ${code(m?.tags ?? [])}`)
+    const oldMaint = (before?.market?.maintainers ?? []).join(", ")
+    const newMaint = (m?.maintainers ?? []).join(", ")
+    if (before && oldMaint !== newMaint) lines.push(`⚠️ **Maintainers changed:** ${oldMaint} → ${newMaint}`)
+    return lines
+}
 
 const headIds = listWorkflowDirs(head)
 const baseIds = base ? listWorkflowDirs(base) : []
 const allIds = [...new Set([...headIds, ...baseIds])].sort()
 
 for (const id of allIds) {
-    const inHead = headIds.includes(id)
-    const inBase = baseIds.includes(id)
     const headDir = path.join(head, "workflows", id)
     const baseDir = base ? path.join(base, "workflows", id) : null
 
-    const now = inHead ? loadFolder(head, id) : null
-    const before = inBase ? loadFolder(base, id) : null
+    const now = headIds.includes(id) ? loadFolder(head, id) : null
+    const before = base && baseIds.includes(id) ? loadFolder(base, id) : null
     const changed = !base || folderHash(headDir) !== folderHash(baseDir)
     if (now) errors.push(...now.errors.map((e) => `${id}: ${e}`))
     if (!base || !changed) continue
@@ -116,12 +126,10 @@ for (const id of allIds) {
     const lines = [`### ${id}`]
     lines.push(before ? `Version ${oldVersion} → ${newVersion}` : `New workflow, version ${newVersion}`)
     lines.push(`Steps: ${stepKinds(now.workflow).join(", ") || "none"}`)
-    lines.push(`Permissions: ${newPerms.length ? newPerms.map((p) => `\`${p}\``).join(", ") : "none"}`)
-    if (before && added.length) lines.push(`⚠️ **New permissions:** ${added.map((p) => `\`${p}\``).join(", ")} (users are asked again)`)
-    if (before && removed.length) lines.push(`Dropped permissions: ${removed.map((p) => `\`${p}\``).join(", ")}`)
-    const oldMaint = (before?.market?.maintainers ?? []).join(", ")
-    const newMaint = (now.market?.maintainers ?? []).join(", ")
-    if (before && oldMaint !== newMaint) lines.push(`⚠️ **Maintainers changed:** ${oldMaint} → ${newMaint}`)
+    lines.push(`Permissions: ${code(newPerms)}`)
+    if (before && added.length) lines.push(`⚠️ **New permissions:** ${code(added)} (users are asked again)`)
+    if (before && removed.length) lines.push(`Dropped permissions: ${code(removed)}`)
+    lines.push(...listingNotes(before, now))
     summary.push(lines.join("\n\n") + "\n")
 }
 

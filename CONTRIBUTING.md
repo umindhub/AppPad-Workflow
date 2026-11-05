@@ -32,17 +32,24 @@ Remove `icon` / `iconURL` from `workflow.json` before you submit; the market ser
 {
   "maintainers": ["your-github-username"],
   "author": { "name": "Your Name", "url": "https://your.site" },
-  "category": "productivity",
-  "example": "df"
+  "categories": ["files", "productivity"],
+  "apps": [{ "bundleId": "com.apple.finder", "name": "Finder" }],
+  "tags": ["finder", "path", "copy"],
+  "example": "path"
 }
 ```
 
 | Field | |
 |---|---|
-| `maintainers` | GitHub usernames allowed to update or remove this workflow. Yours must be in it. |
-| `author.name` | Shown in the market and in AppPad. `author.url` (https) is optional. |
-| `category` | One of `productivity`, `system`, `developer`, `web`, `media`, `files`, `ai`, `other`. |
+| `maintainers` | **Required.** GitHub usernames allowed to update or remove this workflow. Yours must be in it. |
+| `author.name` | **Required.** Shown in the market and in AppPad. `author.url` (https) is optional. |
+| `categories` | **Required**, 1–3, main one first: `productivity`, `system`, `developer`, `files`, `text`, `web`, `network`, `media`, `communication`, `design`, `ai`, `other`. |
+| `apps` | Apps it works with, up to 10: bundle id + the app's name. Every bundle id in `permissions.appleEvents` must be listed. Find a bundle id with `osascript -e 'id of app "Finder"'`. |
+| `tags` | Up to 8 search words people might type: lowercase `a–z`, `0–9`, `-`, at most 24 characters each. |
 | `example` | What to type in the Workflow panel, e.g. `timer 10`. |
+
+The market search also covers the workflow's name, description and `keywords` in every
+language it is translated into, so tags only need what those don't already say.
 
 ## 3. Open a pull request
 

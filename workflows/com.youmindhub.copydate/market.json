@@ -6,6 +6,14 @@
     "name": "YouMindHub",
     "url": "https://youmindhub.com"
   },
-  "category": "productivity",
+  "categories": [
+    "productivity",
+    "text"
+  ],
+  "tags": [
+    "date",
+    "clipboard",
+    "today"
+  ],
   "example": "date"
 }

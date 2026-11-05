@@ -42,4 +42,5 @@ PR 由 `.github/workflows/check.yml` 检查：它运行的是 **base 分支** �
 投稿者只能改 `workflows/` 里的文件。贡献者对 `.github/`、`scripts/` 等 `workflows/`
 之外的改动一律不要合并。
 
-本地命令：`npm run check`（校验）、`npm run preview`（不签名构建到 `dist/`）。
+脚本只用 Node 自带模块，不需要 `npm install`。本地命令：`npm run check`（校验）、
+`npm run preview`（不签名构建到 `dist/`）、`npm run keygen`（生成签名密钥）。

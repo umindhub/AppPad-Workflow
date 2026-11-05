@@ -2,7 +2,7 @@
 //
 //   node scripts/keygen.mjs
 //
-// market-signing-key.pem → GitHub secret MARKET_SIGNING_KEY (then delete the file or keep it offline).
+// market-signing-key.pem → GitHub secret MARKET_SIGNING_KEY (keep a copy in a password manager).
 // The printed public key → WorkflowMarket.publicKey in AppPad.
 
 import { generateKeyPairSync } from "node:crypto"
