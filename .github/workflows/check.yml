@@ -1,0 +1,38 @@
+# PR check. Runs the BASE branch's scripts against the PR's files; PR code is never executed.
+# No secrets, read-only token: a passing check publishes nothing (only a merge does).
+name: Check
+
+on:
+  pull_request:
+    branches: [main, dev]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout base
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+          persist-credentials: false
+
+      - name: Checkout PR
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: head
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Validate, ownership, version, permissions
+        env:
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: node base/scripts/check.mjs --base base --head head --author "$AUTHOR"

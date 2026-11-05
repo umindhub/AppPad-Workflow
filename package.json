@@ -1,0 +1,13 @@
+{
+  "name": "apppad-workflow",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node scripts/check.mjs --head .",
+    "preview": "node scripts/build.mjs --unsigned",
+    "keygen": "node scripts/keygen.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

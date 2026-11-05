@@ -1,0 +1,95 @@
+{
+  "formatVersion": "1.0",
+  "id": "com.youmindhub.copydate",
+  "version": "1.0",
+  "name": "Copy Today’s Date",
+  "description": "Copy today’s date as YYYY-MM-DD to the clipboard.",
+  "localizations": {
+    "de": {
+      "name": "Heutiges Datum kopieren",
+      "description": "Kopiert das heutige Datum als JJJJ-MM-TT in die Zwischenablage.",
+      "keywords": [
+        "datum",
+        "heute"
+      ]
+    },
+    "es": {
+      "name": "Copiar la fecha de hoy",
+      "description": "Copia la fecha de hoy como AAAA-MM-DD en el portapapeles.",
+      "keywords": [
+        "fecha",
+        "hoy"
+      ]
+    },
+    "fr": {
+      "name": "Copier la date du jour",
+      "description": "Copie la date du jour au format AAAA-MM-JJ dans le presse-papiers.",
+      "keywords": [
+        "date",
+        "aujourdhui"
+      ]
+    },
+    "it": {
+      "name": "Copia la data di oggi",
+      "description": "Copia la data di oggi come AAAA-MM-GG negli appunti.",
+      "keywords": [
+        "data",
+        "oggi"
+      ]
+    },
+    "ja": {
+      "name": "今日の日付をコピー",
+      "description": "今日の日付を YYYY-MM-DD 形式でクリップボードにコピーします。",
+      "keywords": [
+        "hiduke",
+        "kyou"
+      ]
+    },
+    "ko": {
+      "name": "오늘 날짜 복사",
+      "description": "오늘 날짜를 YYYY-MM-DD 형식으로 클립보드에 복사합니다."
+    },
+    "nl": {
+      "name": "Kopieer de datum van vandaag",
+      "description": "Kopieert de datum van vandaag als JJJJ-MM-DD naar het klembord.",
+      "keywords": [
+        "datum",
+        "vandaag"
+      ]
+    },
+    "zh-Hans": {
+      "name": "复制今天的日期",
+      "description": "把今天的日期按 YYYY-MM-DD 复制到剪切板。",
+      "keywords": [
+        "riqi",
+        "jintian"
+      ]
+    },
+    "zh-Hant": {
+      "name": "拷貝今天的日期",
+      "description": "把今天的日期依 YYYY-MM-DD 拷貝到剪貼板。",
+      "keywords": [
+        "riqi",
+        "jintian"
+      ]
+    }
+  },
+  "keywords": [
+    "date",
+    "today"
+  ],
+  "symbol": "calendar",
+  "successNotice": "output",
+  "successMessage": "",
+  "failureNotice": "error",
+  "failureMessage": "",
+  "copyOutput": true,
+  "steps": [
+    {
+      "kind": "shell",
+      "script": "date +%F",
+      "timeout": 10
+    }
+  ],
+  "permissions": {}
+}

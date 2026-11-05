@@ -1,0 +1,74 @@
+name: Deploy (Cloudflare Pages, direct upload)
+
+# Push to main or dev → validate, build, sign, upload dist/ with wrangler.
+# One Direct Upload project per branch, both deployed as production (--branch=main):
+#   main → vars.CLOUDFLARE_PROJECT_NAME      (apppadworkflow,    Beta / Release AppPad, youmindhub.com)
+#   dev  → vars.CLOUDFLARE_DEV_PROJECT_NAME  (devapppadworkflow, Dev AppPad, dev.youmindhub.com)
+#
+# Config (same names as the other Pages repos):
+#   secrets.CLOUDFLARE_PAGES_DEPLOY_TOKEN   custom token, Account > Cloudflare Pages > Edit
+#   secrets.CLOUDFLARE_ACCOUNT_ID          account that owns the Pages projects
+#   secrets.MARKET_SIGNING_KEY             Ed25519 private key (scripts/keygen.mjs)
+#   vars.CLOUDFLARE_PROJECT_NAME / vars.CLOUDFLARE_DEV_PROJECT_NAME
+on:
+  push:
+    branches: [main, dev]
+  workflow_dispatch:
+
+concurrency:
+  group: pages-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      # Fail fast with a readable message instead of an empty --project-name later.
+      - name: Check deploy config
+        env:
+          PROJECT_NAME: ${{ github.ref_name == 'main' && vars.CLOUDFLARE_PROJECT_NAME || vars.CLOUDFLARE_DEV_PROJECT_NAME }}
+          ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          API_TOKEN: ${{ secrets.CLOUDFLARE_PAGES_DEPLOY_TOKEN }}
+          SIGNING_KEY: ${{ secrets.MARKET_SIGNING_KEY }}
+        run: |
+          missing=0
+          for name in PROJECT_NAME ACCOUNT_ID API_TOKEN SIGNING_KEY; do
+            if [ -z "${!name}" ]; then
+              echo "::error::$name is not configured for this repository"
+              missing=1
+            fi
+          done
+          [ "$missing" -eq 0 ]
+          echo "PAGES_PROJECT=$PROJECT_NAME" >> "$GITHUB_ENV"
+
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0   # updatedAt comes from git log
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      # No dependencies: the scripts use Node built-ins only.
+      - name: Validate
+        run: node scripts/check.mjs --head .
+
+      # Only this step sees the signing key.
+      - name: Build and sign
+        env:
+          MARKET_SIGNING_KEY: ${{ secrets.MARKET_SIGNING_KEY }}
+        run: MARKET_BASE_URL="https://${PAGES_PROJECT}.pages.dev" node scripts/build.mjs
+
+      # wrangler via npx (no wrangler-action, nothing installed into the repo).
+      # Only this step sees the deploy token.
+      - name: Deploy to Cloudflare Pages
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_PAGES_DEPLOY_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: >-
+          npx --yes wrangler@4
+          pages deploy dist --project-name="$PAGES_PROJECT" --branch=main --commit-dirty=true
