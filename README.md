@@ -3,7 +3,7 @@
 Workflows for [AppPad](https://youmindhub.com/i/apppad)'s Workflow panel (⌘Space), published
 from this repository. Browse them at **[youmindhub.com/i/apppad/workflows](https://youmindhub.com/i/apppad/workflows)**.
 
-[简体中文](README.zh-Hans.md)
+[English](README.md) · [简体中文](docs/i18n/README.zh-Hans.md) · [繁體中文](docs/i18n/README.zh-Hant.md) · [日本語](docs/i18n/README.ja.md) · [한국어](docs/i18n/README.ko.md) · [Nederlands](docs/i18n/README.nl.md) · [Deutsch](docs/i18n/README.de.md) · [Español](docs/i18n/README.es.md) · [Français](docs/i18n/README.fr.md) · [Italiano](docs/i18n/README.it.md)
 
 ## Submit a workflow
 
