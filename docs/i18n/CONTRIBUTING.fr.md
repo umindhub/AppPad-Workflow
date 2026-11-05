@@ -30,9 +30,13 @@ Retirez `icon` / `iconURL` de `workflow.json` avant de proposer le flux ; le mar
   "maintainers": ["your-github-username"],
   "author": { "name": "Your Name", "url": "https://your.site" },
   "categories": ["files", "productivity"],
-  "apps": [{ "bundleId": "com.apple.finder", "name": "Finder" }],
-  "tags": ["finder", "path", "copy"],
-  "example": "path"
+  "apps": ["Finder"],
+  "tags": ["path", "copy"],
+  "example": "path",
+  "localizations": {
+    "zh-Hans": { "apps": { "Finder": "访达" }, "tags": { "path": "路径", "copy": "复制" } },
+    "ja": { "tags": { "path": "パス", "copy": "コピー" } }
+  }
 }
 ```
 
@@ -41,9 +45,10 @@ Retirez `icon` / `iconURL` de `workflow.json` avant de proposer le flux ; le mar
 | `maintainers` | **Obligatoire.** Identifiants GitHub autorisés à mettre à jour ou retirer ce flux. Le vôtre doit en faire partie. |
 | `author.name` | **Obligatoire.** Affiché dans le marché et dans AppPad. `author.url` (https) est facultatif. |
 | `categories` | **Obligatoire**, 1 à 3, la principale en premier : `productivity`, `system`, `developer`, `files`, `text`, `web`, `network`, `media`, `communication`, `design`, `ai`, `other`. |
-| `apps` | Apps avec lesquelles il fonctionne, 10 au maximum : bundle id et nom de l’app. Chaque bundle id de `permissions.appleEvents` doit y figurer. Pour trouver un bundle id : `osascript -e 'id of app "Finder"'`. |
-| `tags` | Jusqu’à 8 mots de recherche : minuscules `a–z`, `0–9`, `-`, 24 caractères au maximum chacun. |
+| `apps` | Apps avec lesquelles il fonctionne, 10 au maximum, sous leur nom courant (`Finder`, `Safari`, `Photoshop`). Affichées sur la page et utilisées pour la recherche et le filtre par app. |
+| `tags` | Jusqu’à 8 mots de recherche en anglais : minuscules `a–z`, `0–9`, `-`, 24 caractères au maximum chacun. Les traductions vont dans `localizations`. |
 | `example` | Ce qu’on tape dans le panneau des flux, par exemple `timer 10`. |
+| `localizations` | Facultatif, par langue (`zh-Hans`, `zh-Hant`, `ja`, `ko`, `nl`, `de`, `es`, `fr`, `it`) : `apps` et `tags` associent chaque nom anglais à sa traduction. Ce qui manque s’affiche en anglais. Les noms de catégories sont traduits par le marché. |
 
 La recherche du marché porte aussi sur le nom, la description et les `keywords` du flux dans chaque langue traduite : les tags n’ont donc qu’à compléter ce qui n’y figure pas déjà.
 

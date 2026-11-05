@@ -67,7 +67,7 @@ const code = (items) => (items.length ? items.map((p) => `\`${p}\``).join(", ") 
 function listingNotes(before, now) {
     const lines = []
     const m = now.market
-    const apps = (m?.apps ?? []).map((a) => `${a.name} (${a.bundleId})`)
+    const apps = m?.apps ?? []
     lines.push(`Listing: categories ${code(m?.categories ?? [])}; apps ${code(apps)}; tags ${code(m?.tags ?? [])}`)
     const oldMaint = (before?.market?.maintainers ?? []).join(", ")
     const newMaint = (m?.maintainers ?? []).join(", ")

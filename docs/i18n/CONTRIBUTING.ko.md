@@ -30,9 +30,13 @@ workflows/<id>/
   "maintainers": ["your-github-username"],
   "author": { "name": "Your Name", "url": "https://your.site" },
   "categories": ["files", "productivity"],
-  "apps": [{ "bundleId": "com.apple.finder", "name": "Finder" }],
-  "tags": ["finder", "path", "copy"],
-  "example": "path"
+  "apps": ["Finder"],
+  "tags": ["path", "copy"],
+  "example": "path",
+  "localizations": {
+    "zh-Hans": { "apps": { "Finder": "访达" }, "tags": { "path": "路径", "copy": "复制" } },
+    "ja": { "tags": { "path": "パス", "copy": "コピー" } }
+  }
 }
 ```
 
@@ -41,9 +45,10 @@ workflows/<id>/
 | `maintainers` | **필수.** 이 워크플로를 업데이트하거나 삭제할 수 있는 GitHub 사용자 이름. 본인을 포함해야 합니다. |
 | `author.name` | **필수.** 마켓과 AppPad에 표시됩니다. `author.url`(https)은 선택입니다. |
 | `categories` | **필수**, 1–3개, 주 카테고리를 맨 앞에: `productivity`, `system`, `developer`, `files`, `text`, `web`, `network`, `media`, `communication`, `design`, `ai`, `other`. |
-| `apps` | 함께 쓰는 앱, 최대 10개: bundle id와 앱 이름. `permissions.appleEvents`의 모든 bundle id를 포함해야 합니다. bundle id는 `osascript -e 'id of app "Finder"'`로 확인할 수 있습니다. |
-| `tags` | 검색어 최대 8개: 소문자 `a–z`, `0–9`, `-`, 각각 24자 이하. |
+| `apps` | 함께 쓰는 앱, 최대 10개. 잘 알려진 이름으로 적으세요(`Finder`, `Safari`, `Photoshop`). 페이지에 표시되고 검색과 앱 필터에 쓰입니다. |
+| `tags` | 영어 검색어 최대 8개: 소문자 `a–z`, `0–9`, `-`, 각각 24자 이하. 번역은 `localizations`에 적습니다. |
 | `example` | 워크플로 패널에 입력할 내용, 예: `timer 10`. |
+| `localizations` | 선택, 언어별(`zh-Hans`, `zh-Hant`, `ja`, `ko`, `nl`, `de`, `es`, `fr`, `it`): `apps`와 `tags`에 영어 이름마다 번역을 지정합니다. 번역이 없는 항목은 영어로 표시됩니다. 카테고리 이름은 마켓이 번역합니다. |
 
 마켓 검색은 번역된 모든 언어의 이름, 설명, `keywords`도 함께 찾으므로, 태그에는 거기에 없는 단어만 넣으면 됩니다.
 

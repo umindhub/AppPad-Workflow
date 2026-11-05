@@ -30,9 +30,13 @@ workflows/<id>/
   "maintainers": ["your-github-username"],
   "author": { "name": "Your Name", "url": "https://your.site" },
   "categories": ["files", "productivity"],
-  "apps": [{ "bundleId": "com.apple.finder", "name": "Finder" }],
-  "tags": ["finder", "path", "copy"],
-  "example": "path"
+  "apps": ["Finder"],
+  "tags": ["path", "copy"],
+  "example": "path",
+  "localizations": {
+    "zh-Hans": { "apps": { "Finder": "访达" }, "tags": { "path": "路径", "copy": "复制" } },
+    "ja": { "tags": { "path": "パス", "copy": "コピー" } }
+  }
 }
 ```
 
@@ -41,9 +45,10 @@ workflows/<id>/
 | `maintainers` | **必須。** このワークフローを更新・削除できる GitHub ユーザ名。自分を含めてください。 |
 | `author.name` | **必須。** マーケットと AppPad に表示されます。`author.url`（https）は任意です。 |
 | `categories` | **必須**、1〜3 個、メインのカテゴリを先頭に：`productivity`, `system`, `developer`, `files`, `text`, `web`, `network`, `media`, `communication`, `design`, `ai`, `other`。 |
-| `apps` | 対応する App、最大 10 個：bundle id と App 名。`permissions.appleEvents` のすべての bundle id を含める必要があります。bundle id は `osascript -e 'id of app "Finder"'` で調べられます。 |
-| `tags` | 検索語、最大 8 個：小文字の `a–z`、`0–9`、`-`、各 24 文字以内。 |
+| `apps` | 対応する App、最大 10 個。一般的な名前で書きます（`Finder`、`Safari`、`Photoshop`）。ページに表示され、検索と App での絞り込みに使われます。 |
+| `tags` | 英語の検索語、最大 8 個：小文字の `a–z`、`0–9`、`-`、各 24 文字以内。翻訳は `localizations` に書きます。 |
 | `example` | ワークフローパネルで入力する内容（例：`timer 10`）。 |
+| `localizations` | 任意、言語ごと（`zh-Hans`, `zh-Hant`, `ja`, `ko`, `nl`, `de`, `es`, `fr`, `it`）：`apps` と `tags` で英語名ごとに訳語を指定します。指定がないものは英語で表示されます。カテゴリ名はマーケットが翻訳します。 |
 
 マーケットの検索は、翻訳されたすべての言語の名前・説明・`keywords` も対象にするため、タグにはそこにない語だけを入れれば十分です。
 

@@ -29,9 +29,11 @@ const FAILURE_NOTICES = ["error", "custom"]
 //   maintainers  GitHub logins allowed to update / remove the workflow (required)
 //   author       { name, url? } shown in the market and in AppPad (required)
 //   categories   1–3 of CATEGORIES, main one first (required)
-//   apps         [{ bundleId, name }] apps it works with; must cover permissions.appleEvents
+//   apps         names of apps it works with, as people know them: "Finder", "Photoshop"
 //   tags         lowercase search words, e.g. "git", "screenshot"
 //   example      what to type in the Workflow panel
+//   localizations  { "<lang>": { apps: { "<English name>": "…" }, tags: { "<tag>": "…" } } }
+//                (categories are translated by the website, not here)
 
 export const CATEGORIES = [
     "productivity", "system", "developer", "files", "text", "web",
@@ -82,12 +84,11 @@ const HTTP_KEYS = new Set(["method", "url", "headers", "body"])
 const LOCALIZATION_KEYS = new Set(["name", "description", "argumentHint", "keywords"])
 const PERMISSION_ARRAYS = ["fileRead", "fileWrite", "appleEvents", "httpHosts", "secrets"]
 const PERMISSION_FLAGS = ["network", "systemServices"]
-const MARKET_KEYS = new Set(["maintainers", "author", "categories", "apps", "tags", "example"])
+const MARKET_KEYS = new Set(["maintainers", "author", "categories", "apps", "tags", "example", "localizations"])
 
 const ID_RE = /^[a-z0-9][a-z0-9-]*(\.[a-z0-9][a-z0-9-]*)+$/
 const VERSION_RE = /^[0-9]+(\.[0-9]+){0,3}$/
 const GITHUB_RE = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/
-const BUNDLE_ID_RE = /^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/
 const TAG_RE = new RegExp(`^[a-z0-9][a-z0-9-]{0,${LIMITS.tagLength - 1}}$`)
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -311,23 +312,15 @@ export function validateMarket(m) {
     }
 
     if ("apps" in m) {
-        if (!Array.isArray(m.apps) || m.apps.length > LIMITS.apps) {
-            errors.push(`market.json apps: an array of at most ${LIMITS.apps} apps`)
+        if (!isStringArray(m.apps) || m.apps.length > LIMITS.apps) {
+            errors.push(`market.json apps: an array of at most ${LIMITS.apps} app names, e.g. ["Finder", "Safari"]`)
         } else {
-            m.apps.forEach((app, i) => {
-                const where = `market.json apps[${i}]`
-                if (!isObject(app)) {
-                    errors.push(`${where}: must be { "bundleId": "…", "name": "…" }`)
-                    return
+            for (const name of m.apps) {
+                if (!name.trim() || name !== name.trim() || name.length > LIMITS.appName) {
+                    errors.push(`market.json apps: "${name}" must be an app name of 1–${LIMITS.appName} characters, no leading or trailing spaces`)
                 }
-                checkKeys(app, new Set(["bundleId", "name"]), where, errors)
-                if (typeof app.bundleId !== "string" || !BUNDLE_ID_RE.test(app.bundleId)) errors.push(`${where}.bundleId: e.g. com.apple.finder`)
-                if (typeof app.name !== "string" || !app.name.trim() || app.name.length > LIMITS.appName) {
-                    errors.push(`${where}.name: the app's name, at most ${LIMITS.appName} characters`)
-                }
-            })
-            const ids = m.apps.filter(isObject).map((a) => String(a.bundleId).toLowerCase())
-            for (const d of duplicates(ids)) errors.push(`market.json apps: "${d}" listed twice`)
+            }
+            for (const d of duplicates(m.apps.map((a) => a.toLowerCase()))) errors.push(`market.json apps: "${d}" listed twice`)
         }
     }
 
@@ -342,18 +335,46 @@ export function validateMarket(m) {
         }
     }
 
+    if ("localizations" in m) validateListingLocalizations(m, errors)
+
     if ("example" in m && (typeof m.example !== "string" || m.example.length > LIMITS.example)) {
         errors.push(`market.json example: a short string (≤ ${LIMITS.example} characters)`)
     }
     return errors
 }
 
-// Apps a script controls must be listed, so "works with" never hides what it touches.
-function checkAppsCoverEvents(w, m, errors) {
-    const listed = new Set((m.apps ?? []).map((a) => a.bundleId.toLowerCase()))
-    for (const bundleId of w.permissions?.appleEvents ?? []) {
-        if (!listed.has(bundleId.toLowerCase())) {
-            errors.push(`market.json apps: add { "bundleId": "${bundleId}", "name": "…" } — the workflow controls it (permissions.appleEvents)`)
+// Translated app names and tags: keys must be the English entries above.
+function validateListingLocalizations(m, errors) {
+    if (!isObject(m.localizations)) {
+        errors.push("market.json localizations: must be an object keyed by language")
+        return
+    }
+    const known = {
+        apps: new Set(isStringArray(m.apps) ? m.apps : []),
+        tags: new Set(isStringArray(m.tags) ? m.tags : []),
+    }
+    const maxLength = { apps: LIMITS.appName, tags: LIMITS.tagLength }
+    for (const [lang, entry] of Object.entries(m.localizations)) {
+        const where = `market.json localizations.${lang}`
+        if (!LANGUAGES.has(lang)) errors.push(`${where}: unsupported language (use ${[...LANGUAGES].join(", ")})`)
+        if (!isObject(entry)) {
+            errors.push(`${where}: must be { "apps": { … }, "tags": { … } }`)
+            continue
+        }
+        checkKeys(entry, new Set(["apps", "tags"]), where, errors)
+        for (const kind of ["apps", "tags"]) {
+            if (!(kind in entry)) continue
+            const table = entry[kind]
+            if (!isObject(table)) {
+                errors.push(`${where}.${kind}: must map each English ${kind === "apps" ? "app name" : "tag"} to its translation`)
+                continue
+            }
+            for (const [key, value] of Object.entries(table)) {
+                if (!known[kind].has(key)) errors.push(`${where}.${kind}: "${key}" is not in "${kind}"`)
+                if (typeof value !== "string" || !value.trim() || value !== value.trim() || value.length > maxLength[kind]) {
+                    errors.push(`${where}.${kind}.${key}: a translation of 1–${maxLength[kind]} characters, no leading or trailing spaces`)
+                }
+            }
         }
     }
 }
@@ -371,7 +392,6 @@ export function loadFolder(root, id) {
     if (BUILTIN_IDS.has(id)) errors.push(`${id}: reserved for an AppPad built-in workflow`)
 
     const workflowPath = path.join(dir, WORKFLOW_FILE)
-    let workflowValid = false
     if (!existsSync(workflowPath)) {
         errors.push("workflow.json: missing")
     } else {
@@ -379,33 +399,24 @@ export function loadFolder(root, id) {
         if (result.raw.length > MAX_WORKFLOW_BYTES) errors.push("workflow.json: larger than 1 MB")
         try {
             const parsed = JSON.parse(result.raw.toString("utf8"))
-            const found = validateWorkflow(parsed, id)
-            errors.push(...found)
+            errors.push(...validateWorkflow(parsed, id))
             result.workflow = parsed
-            workflowValid = found.length === 0
         } catch (e) {
             errors.push(`workflow.json: invalid JSON (${e.message})`)
         }
     }
 
     const marketPath = path.join(dir, MARKET_FILE)
-    let marketValid = false
     if (!existsSync(marketPath)) {
         errors.push("market.json: missing")
     } else {
         try {
             const parsed = JSON.parse(readFileSync(marketPath, "utf8"))
-            const found = validateMarket(parsed)
-            errors.push(...found)
+            errors.push(...validateMarket(parsed))
             result.market = parsed
-            marketValid = found.length === 0
         } catch (e) {
             errors.push(`market.json: invalid JSON (${e.message})`)
         }
-    }
-
-    if (workflowValid && marketValid && result.workflow && result.market) {
-        checkAppsCoverEvents(result.workflow, result.market, errors)
     }
 
     const iconPath = path.join(dir, ICON_FILE)

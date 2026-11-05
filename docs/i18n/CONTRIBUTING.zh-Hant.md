@@ -30,9 +30,13 @@ workflows/<id>/
   "maintainers": ["your-github-username"],
   "author": { "name": "Your Name", "url": "https://your.site" },
   "categories": ["files", "productivity"],
-  "apps": [{ "bundleId": "com.apple.finder", "name": "Finder" }],
-  "tags": ["finder", "path", "copy"],
-  "example": "path"
+  "apps": ["Finder"],
+  "tags": ["path", "copy"],
+  "example": "path",
+  "localizations": {
+    "zh-Hans": { "apps": { "Finder": "访达" }, "tags": { "path": "路径", "copy": "复制" } },
+    "ja": { "tags": { "path": "パス", "copy": "コピー" } }
+  }
 }
 ```
 
@@ -41,9 +45,10 @@ workflows/<id>/
 | `maintainers` | **必填。** 允許更新或移除這個工作流程的 GitHub 使用者名稱，必須包含你自己。 |
 | `author.name` | **必填。** 顯示在市集和 AppPad 中。`author.url`（https）可選。 |
 | `categories` | **必填**，1–3 個，主分類放第一個：`productivity`, `system`, `developer`, `files`, `text`, `web`, `network`, `media`, `communication`, `design`, `ai`, `other`。 |
-| `apps` | 適用的 App，最多 10 個：bundle id 加 App 名稱。`permissions.appleEvents` 中的每個 bundle id 都必須列出。可用 `osascript -e 'id of app "Finder"'` 查詢 bundle id。 |
-| `tags` | 最多 8 個搜尋詞：小寫 `a–z`、`0–9`、`-`，每個不超過 24 個字元。 |
+| `apps` | 適用的 App，最多 10 個，寫大家熟悉的名稱（`Finder`、`Safari`、`Photoshop`）。會顯示在頁面上，並用於搜尋和依 App 篩選。 |
+| `tags` | 最多 8 個英文搜尋詞：小寫 `a–z`、`0–9`、`-`，每個不超過 24 個字元。翻譯寫在 `localizations` 裡。 |
 | `example` | 在工作台中輸入的內容，例如 `timer 10`。 |
+| `localizations` | 選用，依語言填寫（`zh-Hans`, `zh-Hant`, `ja`, `ko`, `nl`, `de`, `es`, `fr`, `it`）：`apps` 和 `tags` 把每個英文名稱對應到譯名，沒有翻譯的會顯示英文。分類名稱由市集負責翻譯。 |
 
 市集搜尋也會涵蓋工作流程在所有已翻譯語言中的名稱、說明和 `keywords`，所以標籤只需補上這些沒有的詞。
 

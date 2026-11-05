@@ -35,9 +35,13 @@ Remove `icon` / `iconURL` from `workflow.json` before you submit; the market ser
   "maintainers": ["your-github-username"],
   "author": { "name": "Your Name", "url": "https://your.site" },
   "categories": ["files", "productivity"],
-  "apps": [{ "bundleId": "com.apple.finder", "name": "Finder" }],
-  "tags": ["finder", "path", "copy"],
-  "example": "path"
+  "apps": ["Finder"],
+  "tags": ["path", "copy"],
+  "example": "path",
+  "localizations": {
+    "zh-Hans": { "apps": { "Finder": "访达" }, "tags": { "path": "路径", "copy": "复制" } },
+    "ja": { "tags": { "path": "パス", "copy": "コピー" } }
+  }
 }
 ```
 
@@ -46,9 +50,10 @@ Remove `icon` / `iconURL` from `workflow.json` before you submit; the market ser
 | `maintainers` | **Required.** GitHub usernames allowed to update or remove this workflow. Yours must be in it. |
 | `author.name` | **Required.** Shown in the market and in AppPad. `author.url` (https) is optional. |
 | `categories` | **Required**, 1–3, main one first: `productivity`, `system`, `developer`, `files`, `text`, `web`, `network`, `media`, `communication`, `design`, `ai`, `other`. |
-| `apps` | Apps it works with, up to 10: bundle id + the app's name. Every bundle id in `permissions.appleEvents` must be listed. Find a bundle id with `osascript -e 'id of app "Finder"'`. |
-| `tags` | Up to 8 search words people might type: lowercase `a–z`, `0–9`, `-`, at most 24 characters each. |
+| `apps` | Apps it works with, up to 10, by the name people know (`Finder`, `Safari`, `Photoshop`). Shown on the page and used for search and the app filter. |
+| `tags` | Up to 8 search words in English: lowercase `a–z`, `0–9`, `-`, at most 24 characters each. Translate them under `localizations`. |
 | `example` | What to type in the Workflow panel, e.g. `timer 10`. |
+| `localizations` | Optional, per language (`zh-Hans`, `zh-Hant`, `ja`, `ko`, `nl`, `de`, `es`, `fr`, `it`): `apps` and `tags` map each English name to its translation. Anything left out is shown in English. Category names are translated by the market. |
 
 The market search also covers the workflow's name, description and `keywords` in every
 language it is translated into, so tags only need what those don't already say.

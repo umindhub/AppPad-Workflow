@@ -15,5 +15,70 @@
     "clipboard",
     "today"
   ],
-  "example": "date"
+  "example": "date",
+  "localizations": {
+    "zh-Hans": {
+      "tags": {
+        "date": "日期",
+        "clipboard": "剪切板",
+        "today": "今天"
+      }
+    },
+    "zh-Hant": {
+      "tags": {
+        "date": "日期",
+        "clipboard": "剪貼板",
+        "today": "今天"
+      }
+    },
+    "ja": {
+      "tags": {
+        "date": "日付",
+        "clipboard": "クリップボード",
+        "today": "今日"
+      }
+    },
+    "ko": {
+      "tags": {
+        "date": "날짜",
+        "clipboard": "클립보드",
+        "today": "오늘"
+      }
+    },
+    "nl": {
+      "tags": {
+        "date": "datum",
+        "clipboard": "klembord",
+        "today": "vandaag"
+      }
+    },
+    "de": {
+      "tags": {
+        "date": "Datum",
+        "clipboard": "Zwischenablage",
+        "today": "heute"
+      }
+    },
+    "es": {
+      "tags": {
+        "date": "fecha",
+        "clipboard": "portapapeles",
+        "today": "hoy"
+      }
+    },
+    "fr": {
+      "tags": {
+        "date": "date",
+        "clipboard": "presse-papiers",
+        "today": "aujourd’hui"
+      }
+    },
+    "it": {
+      "tags": {
+        "date": "data",
+        "clipboard": "appunti",
+        "today": "oggi"
+      }
+    }
+  }
 }

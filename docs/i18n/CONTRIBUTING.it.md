@@ -30,9 +30,13 @@ Rimuovi `icon` / `iconURL` da `workflow.json` prima dell’invio; il mercato for
   "maintainers": ["your-github-username"],
   "author": { "name": "Your Name", "url": "https://your.site" },
   "categories": ["files", "productivity"],
-  "apps": [{ "bundleId": "com.apple.finder", "name": "Finder" }],
-  "tags": ["finder", "path", "copy"],
-  "example": "path"
+  "apps": ["Finder"],
+  "tags": ["path", "copy"],
+  "example": "path",
+  "localizations": {
+    "zh-Hans": { "apps": { "Finder": "访达" }, "tags": { "path": "路径", "copy": "复制" } },
+    "ja": { "tags": { "path": "パス", "copy": "コピー" } }
+  }
 }
 ```
 
@@ -41,9 +45,10 @@ Rimuovi `icon` / `iconURL` da `workflow.json` prima dell’invio; il mercato for
 | `maintainers` | **Obbligatorio.** Utenti GitHub che possono aggiornare o rimuovere questo flusso. Deve includere il tuo. |
 | `author.name` | **Obbligatorio.** Mostrato nel mercato e in AppPad. `author.url` (https) è facoltativo. |
 | `categories` | **Obbligatorio**, da 1 a 3, la principale per prima: `productivity`, `system`, `developer`, `files`, `text`, `web`, `network`, `media`, `communication`, `design`, `ai`, `other`. |
-| `apps` | App con cui funziona, al massimo 10: bundle id e nome dell’app. Ogni bundle id in `permissions.appleEvents` deve essere elencato. Trovi un bundle id con `osascript -e 'id of app "Finder"'`. |
-| `tags` | Fino a 8 parole di ricerca: minuscole `a–z`, `0–9`, `-`, al massimo 24 caratteri ciascuna. |
+| `apps` | App con cui funziona, al massimo 10, con il nome che tutti conoscono (`Finder`, `Safari`, `Photoshop`). Mostrate nella pagina e usate per la ricerca e il filtro per app. |
+| `tags` | Fino a 8 parole di ricerca in inglese: minuscole `a–z`, `0–9`, `-`, al massimo 24 caratteri ciascuna. Le traduzioni vanno in `localizations`. |
 | `example` | Cosa digitare nel pannello dei flussi, per esempio `timer 10`. |
+| `localizations` | Facoltativo, per lingua (`zh-Hans`, `zh-Hant`, `ja`, `ko`, `nl`, `de`, `es`, `fr`, `it`): `apps` e `tags` associano a ogni nome inglese la sua traduzione. Ciò che manca viene mostrato in inglese. I nomi delle categorie li traduce il mercato. |
 
 La ricerca del mercato copre anche nome, descrizione e `keywords` del flusso in ogni lingua in cui è tradotto, quindi i tag devono solo aggiungere ciò che lì non c’è già.
 

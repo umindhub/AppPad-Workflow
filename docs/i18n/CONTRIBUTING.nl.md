@@ -30,9 +30,13 @@ Verwijder `icon` / `iconURL` uit `workflow.json` voordat je indient; de markt le
   "maintainers": ["your-github-username"],
   "author": { "name": "Your Name", "url": "https://your.site" },
   "categories": ["files", "productivity"],
-  "apps": [{ "bundleId": "com.apple.finder", "name": "Finder" }],
-  "tags": ["finder", "path", "copy"],
-  "example": "path"
+  "apps": ["Finder"],
+  "tags": ["path", "copy"],
+  "example": "path",
+  "localizations": {
+    "zh-Hans": { "apps": { "Finder": "访达" }, "tags": { "path": "路径", "copy": "复制" } },
+    "ja": { "tags": { "path": "パス", "copy": "コピー" } }
+  }
 }
 ```
 
@@ -41,9 +45,10 @@ Verwijder `icon` / `iconURL` uit `workflow.json` voordat je indient; de markt le
 | `maintainers` | **Verplicht.** GitHub-gebruikersnamen die deze workflow mogen bijwerken of verwijderen. Die van jou moet erbij staan. |
 | `author.name` | **Verplicht.** Wordt getoond in de markt en in AppPad. `author.url` (https) is optioneel. |
 | `categories` | **Verplicht**, 1–3, de hoofdcategorie eerst: `productivity`, `system`, `developer`, `files`, `text`, `web`, `network`, `media`, `communication`, `design`, `ai`, `other`. |
-| `apps` | Apps waarmee hij werkt, maximaal 10: bundle-id plus de naam van de app. Elke bundle-id in `permissions.appleEvents` moet erin staan. Zoek een bundle-id op met `osascript -e 'id of app "Finder"'`. |
-| `tags` | Maximaal 8 zoekwoorden: kleine letters `a–z`, `0–9`, `-`, elk maximaal 24 tekens. |
+| `apps` | Apps waarmee hij werkt, maximaal 10, met de naam die mensen kennen (`Finder`, `Safari`, `Photoshop`). Wordt op de pagina getoond en gebruikt voor zoeken en het app-filter. |
+| `tags` | Maximaal 8 zoekwoorden in het Engels: kleine letters `a–z`, `0–9`, `-`, elk maximaal 24 tekens. Vertalingen staan onder `localizations`. |
 | `example` | Wat je in het workflowpaneel typt, bijvoorbeeld `timer 10`. |
+| `localizations` | Optioneel, per taal (`zh-Hans`, `zh-Hant`, `ja`, `ko`, `nl`, `de`, `es`, `fr`, `it`): `apps` en `tags` koppelen elke Engelse naam aan de vertaling. Wat ontbreekt, wordt in het Engels getoond. Categorienamen vertaalt de markt zelf. |
 
 De zoekfunctie van de markt doorzoekt ook de naam, beschrijving en `keywords` van de workflow in elke vertaalde taal, dus tags hoeven alleen aan te vullen wat daar nog niet staat.
 

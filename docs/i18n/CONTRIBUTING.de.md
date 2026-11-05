@@ -30,9 +30,13 @@ Entferne `icon` / `iconURL` aus `workflow.json`, bevor du einreichst; der Markt 
   "maintainers": ["your-github-username"],
   "author": { "name": "Your Name", "url": "https://your.site" },
   "categories": ["files", "productivity"],
-  "apps": [{ "bundleId": "com.apple.finder", "name": "Finder" }],
-  "tags": ["finder", "path", "copy"],
-  "example": "path"
+  "apps": ["Finder"],
+  "tags": ["path", "copy"],
+  "example": "path",
+  "localizations": {
+    "zh-Hans": { "apps": { "Finder": "访达" }, "tags": { "path": "路径", "copy": "复制" } },
+    "ja": { "tags": { "path": "パス", "copy": "コピー" } }
+  }
 }
 ```
 
@@ -41,9 +45,10 @@ Entferne `icon` / `iconURL` aus `workflow.json`, bevor du einreichst; der Markt 
 | `maintainers` | **Pflicht.** GitHub-Benutzernamen, die diesen Workflow aktualisieren oder entfernen dürfen. Deiner muss dabei sein. |
 | `author.name` | **Pflicht.** Wird im Markt und in AppPad angezeigt. `author.url` (https) ist optional. |
 | `categories` | **Pflicht**, 1–3, die Hauptkategorie zuerst: `productivity`, `system`, `developer`, `files`, `text`, `web`, `network`, `media`, `communication`, `design`, `ai`, `other`. |
-| `apps` | Apps, mit denen er funktioniert, höchstens 10: Bundle-ID plus Name der App. Jede Bundle-ID aus `permissions.appleEvents` muss aufgeführt sein. Eine Bundle-ID findest du mit `osascript -e 'id of app "Finder"'`. |
-| `tags` | Bis zu 8 Suchbegriffe: Kleinbuchstaben `a–z`, `0–9`, `-`, jeweils höchstens 24 Zeichen. |
+| `apps` | Apps, mit denen er funktioniert, höchstens 10, unter dem bekannten Namen (`Finder`, `Safari`, `Photoshop`). Wird auf der Seite angezeigt und für Suche und App-Filter genutzt. |
+| `tags` | Bis zu 8 Suchbegriffe auf Englisch: Kleinbuchstaben `a–z`, `0–9`, `-`, jeweils höchstens 24 Zeichen. Übersetzungen gehören unter `localizations`. |
 | `example` | Was man im Workflow-Panel tippt, z. B. `timer 10`. |
+| `localizations` | Optional, pro Sprache (`zh-Hans`, `zh-Hant`, `ja`, `ko`, `nl`, `de`, `es`, `fr`, `it`): `apps` und `tags` ordnen jedem englischen Namen seine Übersetzung zu. Was fehlt, erscheint auf Englisch. Kategorienamen übersetzt der Markt selbst. |
 
 Die Suche im Markt durchsucht auch Name, Beschreibung und `keywords` des Workflows in jeder übersetzten Sprache; Tags müssen also nur ergänzen, was dort noch nicht steht.
 

@@ -52,6 +52,17 @@ function localizedText(table) {
     return out
 }
 
+// Adds market.json's translated app names and tags to each language's display text.
+function mergeListing(out, table) {
+    for (const [lang, entry] of Object.entries(table ?? {})) {
+        const picked = {}
+        if (entry.apps && Object.keys(entry.apps).length) picked.apps = entry.apps
+        if (entry.tags && Object.keys(entry.tags).length) picked.tags = entry.tags
+        if (Object.keys(picked).length) out[lang] = { ...out[lang], ...picked }
+    }
+    return out
+}
+
 rmSync(DIST, { recursive: true, force: true })
 mkdirSync(path.join(DIST, "v1", "workflows"), { recursive: true })
 
@@ -85,7 +96,7 @@ for (const id of listWorkflowDirs(ROOT)) {
         formatVersion: String(w.formatVersion),
         name: w.name,
         description: w.description,
-        localizations: localizedText(w.localizations),
+        localizations: mergeListing(localizedText(w.localizations), m.localizations),
         keywords: w.keywords ?? [],
         argument: w.argument ?? "none",
         argumentHint: w.argumentHint ?? "",
