@@ -56,12 +56,13 @@ Each step's output becomes the next step's input; the last step's output is the 
   - Bash-only builtins (`mapfile`, `readarray`, `shopt`) don't exist.
 - Only if bash is really needed, call `bash -c '…'` inside the script (macOS ships the old bash 3.2: no associative arrays, no `mapfile`). Prefer zsh.
 - Input arrives on **stdin** and in `$APPPAD_INPUT` (up to 64 KB). Output = stdout (trailing newlines trimmed). stderr is shown only on failure.
-- Environment: `HOME`, `USER`, `PATH`, `LANG`, `APPPAD_WORKFLOW`, and `TMPDIR`, a per-run scratch directory that is also the working directory and is deleted afterwards.
+- Environment: `HOME`, `USER`, `PATH`, `LANG`, `APPPAD_WORKFLOW`, and `TMPDIR`, a per-run scratch directory that is also the working directory and is deleted afterwards. Here-documents (`<<'EOF'`) work.
 
 ### `appleScript`
 `{"kind": "appleScript", "language": "appleScript" | "javaScript", "script": "…"}`
 - Runs with `osascript` in the same sandbox. Input is the first argument (`on run argv` / `function run(argv)`) and stdin; the returned value is the output.
-- Implies the `systemServices` permission. To control an app, add its bundle id to `permissions.appleEvents` (macOS also asks for Automation access once).
+- Implies the `systemServices` permission. Works: plain AppleScript / JavaScript logic, `display notification`, `set volume`, `do shell script` (same sandbox), and system frameworks through JXA's ObjC bridge (e.g. `$.NSWorkspace.sharedWorkspace.runningApplications` + `hide`).
+- Scripts cannot control other apps: macOS rejects Apple Events from sandboxed processes (error -10004), so `tell application "Finder"` / `Application("System Events")` fail. See [Sandbox limits](#sandbox-limits).
 
 ### `shortcut`
 `{"kind": "shortcut", "shortcutName": "My Shortcut", "shortcutInput": ""}`
@@ -84,7 +85,7 @@ Each step's output becomes the next step's input; the last step's output is the 
 | `keepAwake` | seconds; empty or 0 = until stopped |
 | `setVolume` | 0–100 |
 | `quitApp` | app name (exact, then prefix) |
-| `openURL` | needs `"url"` on the step, e.g. `"https://www.google.com/search?q={{input}}"` (`{{input}}` percent-encoded) |
+| `openURL` | needs `"url"` on the step, e.g. `"https://www.google.com/search?q={{input}}"` (`{{input}}` percent-encoded). Refused: `file:` URLs and shortcut run URLs (`shortcuts://run-shortcut…`); run a shortcut with a `shortcut` step |
 | `createReminder` | from `argumentType: "reminder"`, or plain text |
 | `prefillTerminal` | needs `"command"` (one line, `{{input}}` inserted raw); optional `"directory"` (`~` allowed) |
 | `openSystemSettings` | a System Settings page: name in any AppPad language (`displays`, `wifi`, `蓝牙`) or extension id (`com.apple.Displays-Settings.extension`); empty = System Settings itself |
@@ -93,27 +94,42 @@ As the first step, `openSystemSettings` parses the panel argument as a page name
 
 `prefillTerminal` opens Terminal in `directory` with `command` typed at the prompt of the user's login shell (zsh by default). It never runs by itself: the user reads it and presses Return. Use it for work that must run outside the sandbox (build or release scripts, installers). `installHomebrew` works the same way with Homebrew's official install command. Example: `{"kind": "builtin", "builtin": "prefillTerminal", "directory": "~/Projects/App", "command": "sh build.sh"}`.
 
+## Sandbox limits
+
+`shell` and `appleScript` steps run in a sandbox. These never work there, whatever the permissions say; use the alternative instead:
+
+| Not possible in a script | Use instead |
+|---|---|
+| Controlling other apps with Apple Events (`tell application …`, JXA `Application("…")`) | a `builtin` action (`quitApp`, `quitAllApps`, `toggleDarkMode`, `emptyTrash`, …), or JXA's ObjC bridge for app state (list / hide / unhide running apps) |
+| Opening apps, files or URLs (`open`, `NSWorkspace` open calls) | `builtin` `openURL` for links |
+| Running shortcuts (`shortcuts run`) | a `shortcut` step; pass data by chaining steps |
+| Running commands in Terminal or outside the sandbox | `builtin` `prefillTerminal` (the user presses Return) |
+| Quitting or signalling other apps (`kill`, `killall`), background jobs (`launchctl`) | `builtin` `quitApp` / `quitAllApps` |
+| Changing preferences (`defaults write`) | not available (`defaults read` works with `systemServices`) |
+| Files outside `TMPDIR` and the declared folders | declare `fileRead` / `fileWrite` |
+
+The PR check lists scripts that look like they try one of these, so the reviewer can ask for a fix.
+
 ## Permissions
 
 ```json
 "permissions": {
   "fileRead": ["~/Documents/Notes"], "fileWrite": ["~/Desktop"],
   "network": false, "systemServices": false,
-  "appleEvents": ["com.apple.finder"],
   "httpHosts": ["api.github.com"], "secrets": ["GITHUB_TOKEN"]
 }
 ```
 - `shell` / `appleScript` run in a default-deny sandbox. They can always read system locations (/usr, /bin, /System, /Library, /Applications, /opt/homebrew, /etc) and use `TMPDIR`. Everything else must be declared:
   - `fileRead` / `fileWrite`: user folders (`~` allowed; write includes read).
   - `network`: outbound network for scripts (curl, git, gh…).
-  - `systemServices`: `open`, `pbcopy`/`pbpaste`, launching apps, notifications.
-  - `appleEvents`: bundle ids scripts may control.
+  - `systemServices`: clipboard (`pbcopy` / `pbpaste`), notifications (`display notification`), sound (`say`, `afplay`, AppleScript volume), reading preferences (`defaults read`), listing / hiding / unhiding running apps through JXA. Nothing that opens or launches anything (see [Sandbox limits](#sandbox-limits)).
+  - `appleEvents`: leave it out. Controlling other apps is not possible, and the market rejects a non-empty list.
 - `httpHosts` / `secrets`: for `http` steps. Shortcuts and built-in actions are permitted per item automatically (the user is asked).
 - On the first run the user gets Allow Once / Always Allow / Don't Allow for undecided items. Declare the minimum: the smaller the list, the easier the approval.
 
 ## Validation (the PR check and AppPad both enforce this)
 
-- At least one step; no empty scripts; a shortcut name for `shortcut` steps; an http(s) URL whose host is in `httpHosts` and every referenced secret in `secrets`; a `url` for `openURL`; a one-line `command` (no control characters) for `prefillTerminal`.
+- At least one step; no empty scripts; a shortcut name for `shortcut` steps; an http(s) URL whose host is in `httpHosts` and every referenced secret in `secrets`; a `url` for `openURL` that is not a `file:` URL or a shortcut run URL; a one-line `command` (no control characters) for `prefillTerminal`.
 
 ## Examples
 
@@ -145,5 +161,23 @@ Two steps (the shell output feeds the next step):
  "name": "Search Clipboard", "description": "Search Google for the text on the clipboard.", "keywords": ["sc"], "symbol": "magnifyingglass",
  "steps": [{"kind": "shell", "script": "pbpaste | head -c 200"},
            {"kind": "builtin", "builtin": "openURL", "url": "https://www.google.com/search?q={{input}}"}],
+ "permissions": {"systemServices": true}}
+```
+
+JXA through the ObjC bridge (hides every regular app; no Apple Events involved):
+```json
+{"formatVersion": "1.0", "id": "com.example.hideapps", "version": "1.0",
+ "name": "Hide All Apps", "description": "Hide every open app.", "keywords": ["hideall"], "symbol": "eye.slash",
+ "steps": [{"kind": "appleScript", "language": "javaScript",
+   "script": "ObjC.import('AppKit'); const apps = $.NSWorkspace.sharedWorkspace.runningApplications; let n = 0; for (let i = 0; i < apps.count; i++) { const a = apps.objectAtIndex(i); if (Number(a.activationPolicy) !== 0) continue; a.hide; n++; } 'hidden ' + n"}],
+ "permissions": {"systemServices": true}}
+```
+
+Script output into a shortcut (scripts can't call `shortcuts` themselves):
+```json
+{"formatVersion": "1.0", "id": "com.example.clipshortcut", "version": "1.0",
+ "name": "Clipboard to Shortcut", "description": "Send the clipboard text to a shortcut.", "keywords": ["clipsc"], "symbol": "square.2.layers.3d",
+ "steps": [{"kind": "shell", "script": "pbpaste | head -c 2000"},
+           {"kind": "shortcut", "shortcutName": "My Shortcut"}],
  "permissions": {"systemServices": true}}
 ```

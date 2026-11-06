@@ -11,7 +11,7 @@ import path from "node:path"
 import { parseArgs } from "node:util"
 import {
     RESERVED_PREFIXES, compareVersions, isAdmin, isMaintainer, listWorkflowDirs, loadFolder,
-    permissionList, sha256, stepKinds,
+    permissionList, sandboxHints, sha256, stepKinds,
 } from "./lib.mjs"
 
 const { values: args } = parseArgs({
@@ -129,6 +129,8 @@ for (const id of allIds) {
     lines.push(`Permissions: ${code(newPerms)}`)
     if (before && added.length) lines.push(`⚠️ **New permissions:** ${code(added)} (users are asked again)`)
     if (before && removed.length) lines.push(`Dropped permissions: ${code(removed)}`)
+    const hints = sandboxHints(now.workflow)
+    if (hints.length) lines.push(`⚠️ **Won't work in the sandbox** (see docs/FORMAT.md › Sandbox limits):\n${hints.map((h) => `- ${h}`).join("\n")}`)
     lines.push(...listingNotes(before, now))
     summary.push(lines.join("\n\n") + "\n")
 }

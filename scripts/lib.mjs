@@ -139,6 +139,50 @@ function pngSize(buf) {
     return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) }
 }
 
+// ── Sandbox limits (mirrors AppPad's SeatbeltProfile / WorkflowRunner) ──────────
+
+// Why AppPad's openURL would refuse this template, or null. Links only: no file URLs,
+// no shortcut run URLs (a "shortcut" step runs one, with its own approval).
+export function refusedOpenURL(template) {
+    const text = String(template ?? "").trim()
+    const match = /^([A-Za-z][A-Za-z0-9+.-]*):/.exec(text)
+    if (!match) return null
+    const scheme = match[1].toLowerCase()
+    if (scheme === "file") return "file: URLs are refused (openURL opens links only)"
+    if (scheme !== "shortcuts" && scheme !== "workflow") return null
+    let target = text.slice(match[0].length).split("?")[0]
+    for (let i = 0; i < 5; i++) {
+        let decoded
+        try { decoded = decodeURIComponent(target) } catch { break }
+        if (decoded === target) break
+        target = decoded
+    }
+    return /run-shortcut|run-workflow/i.test(target)
+        ? 'shortcut run URLs are refused; use a "shortcut" step'
+        : null
+}
+
+// Things a script can never do in the sandbox. Heuristic: reported to the reviewer, not a failure.
+const SANDBOX_HINTS = [
+    { re: /\btell\s+app(?:lication)?\s+(?:id\s+)?"/i, what: "controls another app with Apple Events (refused in the sandbox; use a builtin action)" },
+    { re: /\bApplication\(\s*["']/, what: "controls another app with Apple Events via JXA (refused in the sandbox; use a builtin action)" },
+    { re: /(?:^|[\s;|&(`])open\s+(?!for\s+access)/m, what: "uses `open` (scripts can't open apps, files or links; use openURL)" },
+    { re: /\bshortcuts\s+run\b/, what: "runs `shortcuts run` (use a shortcut step)" },
+    { re: /\blaunchctl\b/, what: "uses `launchctl` (not available in the sandbox)" },
+    { re: /\b(?:killall|pkill)\b|\bkill\s+-/, what: "signals other processes (use quitApp / quitAllApps)" },
+    { re: /\bdefaults\s+write\b/, what: "uses `defaults write` (not available in the sandbox)" },
+]
+
+export function sandboxHints(w) {
+    const hints = []
+    ;(Array.isArray(w?.steps) ? w.steps : []).forEach((step, i) => {
+        if (!isObject(step) || (step.kind !== "shell" && step.kind !== "appleScript")) return
+        const script = typeof step.script === "string" ? step.script : ""
+        for (const { re, what } of SANDBOX_HINTS) if (re.test(script)) hints.push(`steps[${i}]: ${what}`)
+    })
+    return hints
+}
+
 // ── Workflow validation ──────────────────────────────────────────────────────
 
 function checkKeys(obj, allowed, where, errors) {
@@ -173,6 +217,13 @@ function validateStep(step, i, errors) {
     if (step.kind === "shortcut" && !(typeof step.shortcutName === "string" && step.shortcutName.trim())) {
         errors.push(`${where}.shortcutName: empty`)
     }
+    if (step.kind === "builtin" && step.builtin === "openURL") {
+        if (!(typeof step.url === "string" && step.url.trim())) errors.push(`${where}.url: empty`)
+        else {
+            const refused = refusedOpenURL(step.url)
+            if (refused) errors.push(`${where}.url: ${refused}`)
+        }
+    }
     if ("http" in step) {
         const http = step.http
         if (!isObject(http)) {
@@ -201,6 +252,10 @@ function validatePermissions(p, errors) {
     }
     for (const key of PERMISSION_FLAGS) {
         if (key in p && typeof p[key] !== "boolean") errors.push(`permissions.${key}: must be true or false`)
+    }
+    // AppPad no longer grants it: macOS refuses Apple Events from the sandbox.
+    if (isStringArray(p.appleEvents) && p.appleEvents.length) {
+        errors.push("permissions.appleEvents: has no effect (scripts can't control other apps); remove it")
     }
 }
 
